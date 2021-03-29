@@ -82,6 +82,11 @@ class Geeks3D:
         # Geeks 3D Moonrake API
         self.server.register_endpoint("/server/geeks3d/push_token", ['GET'],
                                       self._get_push_token)
+
+
+        # Refresh push token
+        self.server.register_endpoint("/server/geeks3d/refresh_push_token", ['GET'],
+                                      self._refresh_push_token)
         # Send a test push notification to verify setup is correct
         self.server.register_endpoint("/server/geeks3d/test_push_token", ['GET'],
                                       self._test_push)
@@ -113,7 +118,14 @@ class Geeks3D:
             self.db_ns.insert("geeks_push_token", self.push_token)   
             self.fresh_push_token = True   
         else :
-            self.fresh_push_token = False        
+            self.fresh_push_token = False    
+
+    async def _refresh_push_token(self, web_request):
+        self.push_token = str(uuid.uuid4())
+        self.db_ns.update_child("geeks_push_token", self.push_token)   
+        self.fresh_push_token = True   
+        return {"push_token": self.push_token, "is_refreshed": True, "is_fresh": self.fresh_push_token}
+
 
 
     async def _get_push_token(self, web_request):
@@ -208,7 +220,7 @@ class Geeks3D:
 
         try:
             self.total_print_time =  self.current_time_passed / virtual_sdcard["progress"]
-            self.current_eta = total_print_time - self.current_time_passed
+            self.current_eta = self.total_print_time - self.current_time_passed
         except:
             self.total_print_time = 0
             self.current_eta = 0
