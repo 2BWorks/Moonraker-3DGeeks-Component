@@ -68,5 +68,75 @@ Should see something like this:
 Open side menu > Integrations > Klipper > '+'-icon > Follow setup instructions
 ```
 
+# Configuration
+The 3D Geeks component has a few parameters which can be customised:
 
+Underneath section `[geeks3d]` you can define the following values:
 
+Machine is the name that gets displayed in the push notifications, Default: Klipper
+
+```
+machine_name: Klipper
+```
+
+ Percentage interval to notify phone, for example when set to 25
+ You will be notified when the print hits the: 25%, 50%, 75%, 100% mark
+ Default: 10, Minimum: 5, Maximum: 101
+ Note: dont want update interval? set this value to 101
+ 
+```
+notify_update_interval: 10
+```
+
+ Wether or not notify whenever a print starts
+ Default: True
+```
+notify_print_started: True
+```
+
+ Wether or not to notify user whenever a print pauses
+ Default: True
+```
+notify_print_paused: True
+```
+
+ Wether or not to notify user whenever a print resumes, Default: True
+```
+notify_print_resumed: True
+```
+
+ Wether or not to notify user whenever a print completes
+ Default: True
+```
+notify_print_completed: True
+```
+
+ Wether or not to notify user whenever a print fails, the reason will also be put in the notification
+ Default: True
+```
+notify_print_failed: True
+```
+
+ Wether or not to notify user whenever a print is cancelled
+ Default: True
+```
+notify_print_cancelled: True
+```
+
+ Wether or not to notify user when the server comes online
+ Default: True
+```
+notify_klippy_disconnect: True
+```
+
+ Wether or not to notify user when klippy is ready
+ Default: True
+```
+notify_klippy_ready: True
+```
+
+ Wether or not to notify user when klippy is shutdown
+ Default: True
+```
+notify_klippy_shutdown: True
+```
