@@ -12,7 +12,8 @@ from tornado.escape import json_decode
 
 GEEKS3D_NAMESPACE = "geeks"
 AWS_LAMBDA_ENDPOINT = "https://qx8eve27wk.execute-api.eu-west-2.amazonaws.com/prod/moonraker-push"
-
+VERSION = 1
+VERSION_NAME = "1.0"
 
 class Geeks3D:
     def __init__(self, config):
@@ -91,9 +92,13 @@ class Geeks3D:
         self.server.register_endpoint("/server/geeks3d/test_push_token", ['GET'],
                                       self._test_push)
 
+        # Send a test push notification to verify setup is correct
+        self.server.register_endpoint("/server/geeks3d/version", ['GET'],
+                                      self._get_version_info)
+
         # Only register this endpoint for debug purposes
-        # self.server.register_endpoint("/server/geeks3d/status", ['GET'],
-                                    #   self._get_last_status)
+        self.server.register_endpoint("/server/geeks3d/status", ['GET'],
+                                      self._get_last_status)
     
         # Register server events
         self.server.register_event_handler(
@@ -130,6 +135,10 @@ class Geeks3D:
 
     async def _get_push_token(self, web_request):
         return {"push_token": self.push_token, "is_fresh": self.fresh_push_token}
+
+
+    async def _get_version_info(self, web_request):
+        return {"version_code": VERSION, "version_name": VERSION_NAME}
 
 
     async def _test_push(self, web_request):
@@ -182,9 +191,11 @@ class Geeks3D:
 
         # Initalize printer state and make subscription request
         self.printer_state = {
-             'virtual_sdcard': {},
-             'display_status': {}, 
-             'print_stats': {},
+            'virtual_sdcard': {},
+            'display_status': {}, 
+            'print_stats': {},
+            'gcode_move': {}, 
+            'toolhead': {}
         }
 
         sub_args = {k: None for k in self.printer_state.keys()}
@@ -307,11 +318,12 @@ class Geeks3D:
     
     def _call_notification_endpoint(self, payload): 
         # Call notification endpoint that will result in a notification
+        logging.info("Calling notification endpoint")
         http_client = AsyncHTTPClient()
         headers = {'Content-Type': 'application/json'}
         json_data = json.dumps(payload)
         response =  http_client.fetch(self.notify_endpoint,
-                                        raise_error=False,
+                                        raise_error=True,
                                         method='POST',
                                         body=json_data,
                                         headers=headers)
