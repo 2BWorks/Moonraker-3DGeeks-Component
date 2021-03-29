@@ -17,6 +17,8 @@ Any command from here on out assumes you have installed the above requirements, 
 
 1. SSH into your klipper server
 
-`$ ssh pi@local_ip`
+```
+$ ssh pi@local_ip
+```
 
 1. Clone 3D Geeks Component 
