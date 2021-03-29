@@ -2,7 +2,7 @@
 import uuid
 import logging
 import asyncio
-import json
+import json 
 
 from tornado.ioloop import IOLoop
 from tornado.iostream import IOStream
@@ -16,6 +16,8 @@ AWS_LAMBDA_ENDPOINT = "https://qx8eve27wk.execute-api.eu-west-2.amazonaws.com/pr
 
 class Geeks3D:
     def __init__(self, config):
+
+        # Init values
         self.last_progress = 0
         self.printer_cfg = {}
         self.current_state = "None"
@@ -23,52 +25,70 @@ class Geeks3D:
         self.error_message = ""
         self.current_progress = 0
         self.current_time_passed = 0
+        self.total_print_time = 0
         self.current_eta = 0
         self.printer_state = {}
         self.server = config.get_server()
         self.name = config.get_name()
+
         self.klippy_apis = self.server.lookup_component('klippy_apis')
         self.database = self.server.lookup_component("database")
         self.database.register_local_namespace(GEEKS3D_NAMESPACE)
         self.db_ns = self.database.wrap_namespace(GEEKS3D_NAMESPACE)
 
-
-        #update interval minimum = 5 to not overload aws
+        # Percentage interval to notify phone, for example when set to 25
+        # You will be notified when the print hits the: 25%, 50%, 75%, 100% mark
+        # Default: 10, Minimum: 5, Maximum: 100
         self.notify_update_interval = config.getfloat("notify_update_interval", 10)
         if self.notify_update_interval < 5:
             self.notify_update_interval = 5
-        
+        # Machine is the name that gets displayed in the push notifications, Default: Klipper
         self.machine_name = config.get("machine_name", "Klipper")
+        # Wether or not notify whenever a print starts, Default: True
         self.notify_print_started = config.getboolean("notify_print_started", True)
+        # Wether or not to notify user whenever a print pauses, Default: True
         self.notify_print_paused = config.getboolean("notify_print_paused", True)
+        # Wether or not to notify user whenever a print resumes, Default: True
         self.notify_print_resumed = config.getboolean("notify_print_resumed", True)
+        # Wether or not to notify user whenever a print completes, Default: True
         self.notify_print_completed = config.getboolean("notify_print_completed", True)
+        # Wether or not to notify user whenever a print is cancelled, Default: True
         self.notify_print_cancelled = config.getboolean("notify_print_cancelled", True)
+        # Wether or not to notify user whenever a print fails, the reason will also be put in the notification
+        # Default: True
         self.notify_print_failed = config.getboolean("notify_print_failed", True)
-
+        # Wether or not to notify user when the server comes online
+        # Default: True
         self.notify_server_startup = config.getboolean("notify_server_startup", True)
+        # Wether or not to notify user when the server comes online
+        # Default: True
         self.notify_klippy_disconnect = config.getboolean("notify_klippy_disconnect", True)
+        # Wether or not to notify user when klippy is ready
+        # Default: True
         self.notify_klippy_ready = config.getboolean("notify_klippy_ready", True)
+        # Wether or not to notify user when klippy is shutdown
+        # Default: True
         self.notify_klippy_shutdown = config.getboolean("notify_klippy_shutdown", True)
-        self.notify_endpoint = AWS_LAMBDA_ENDPOINT
-        # self.notify_endpoint = config.get("notification_endpoint", AWS_LAMBDA_ENDPOINT)
+        # The endpoint that get's called whenever an event happens. You can substitute this for your own.
+        # see: _call_notification_endpoint() for the implementation of the POST Body
+        # Default: AWS_LAMBDA_ENDPOINT
+        self.notify_endpoint = config.get("notification_endpoint", AWS_LAMBDA_ENDPOINT)
 
-
-
-
-
+        # Create the push token, it's the magic link between app and moonraker
+        # It's secret and should be treated as a password
+        # Do not share with anybody
         self._create_push_token()
 
+        # Geeks 3D Moonrake API
         self.server.register_endpoint("/server/geeks3d/push_token", ['GET'],
                                       self._get_push_token)
-
+        # Send a test push notification to verify setup is correct
         self.server.register_endpoint("/server/geeks3d/test_push_token", ['GET'],
                                       self._test_push)
 
-        self.server.register_endpoint("/server/geeks3d/status", ['GET'],
-                                      self._get_last_status)
-
-
+        # Only register this endpoint for debug purposes
+        # self.server.register_endpoint("/server/geeks3d/status", ['GET'],
+                                    #   self._get_last_status)
     
         # Register server events
         self.server.register_event_handler(
@@ -79,24 +99,21 @@ class Geeks3D:
             "server:klippy_disconnect", self._handle_klippy_disconnect)
         self.server.register_event_handler(
             "server:status_update", self._handle_status_update)
-        # self.server.register_event_handler(
-        #     "server:gcode_response", self._handle_gcode_response)
 
-
-
+        # Notify server has started up
         if self.notify_server_startup:
             payload = self._create_payload("startup")
             self._call_notification_endpoint(payload)
 
     def _create_push_token(self):
-
+        # Your push token is very secret. Do not share! Treat it as a password.
         self.push_token = self.db_ns.get("geeks_push_token")
         if self.push_token == None :
             self.push_token = str(uuid.uuid4())
-            self.db_ns.insert("geeks_push_token", self.push_token)
-            self.fresh_push_token = True
+            self.db_ns.insert("geeks_push_token", self.push_token)   
+            self.fresh_push_token = True   
         else :
-            self.fresh_push_token = False
+            self.fresh_push_token = False        
 
 
     async def _get_push_token(self, web_request):
@@ -111,8 +128,8 @@ class Geeks3D:
     async def _get_last_status(self, web_request):
         return {
             "printer_state": self.printer_state,
-            "printer_config" : self.printer_cfg,
-            "name": self.name,
+            "printer_config" : self.printer_cfg, 
+            "name": self.name, 
             "payload": self._create_payload("PrintProgress")
         }
 
@@ -154,7 +171,7 @@ class Geeks3D:
         # Initalize printer state and make subscription request
         self.printer_state = {
              'virtual_sdcard': {},
-             'display_status': {},
+             'display_status': {}, 
              'print_stats': {},
         }
 
@@ -189,7 +206,14 @@ class Geeks3D:
         self.current_time_passed = print_stats["print_duration"]
         new_state = print_stats["state"]
 
+        try:
+            self.total_print_time =  self.current_time_passed / virtual_sdcard["progress"]
+            self.current_eta = total_print_time - self.current_time_passed
+        except:
+            self.total_print_time = 0
+            self.current_eta = 0
 
+        # Switch logic for handeling state changes.
         if self.current_state != new_state:
             old_state = self.current_state
             self.current_state = new_state
@@ -204,14 +228,18 @@ class Geeks3D:
                 if old_state == "printing" or old_state == "paused":
                     if self.notify_print_cancelled:
                         self._handle_cancel_state()
-            if self.current_state == "complete":
+            if self.current_state == "complete" and self.notify_print_completed:
                 self._handle_complete_state()
             if self.current_state == "paused" and self.notify_print_paused:
                 self._handle_paused_state()
             if self.current_state == "error" and self.notify_print_failed:
                 self.error_message = print_stats["message"]
                 self._handle_error_state()
+        else:
+            self.current_state = new_state
         
+        # If progress has changed and exceeds or is equal to set threshold
+        # Notify the user
         if self.current_progress != 0 and self.current_progress != self.last_progress:
             if self.current_progress - self.last_progress >= self.notify_update_interval:
                 self.last_progress = self.current_progress
@@ -246,46 +274,35 @@ class Geeks3D:
         self._call_notification_endpoint(payload)
 
     def _handle_error_state(self):
+        # Abbuse job name to also show error message in the notification
         self.current_job_name = self.current_job_name + ": " + self.error_message
         payload = self._create_payload("PrintFailed")
         self._call_notification_endpoint(payload)
 
     def _create_payload(self, event):
-
+        # Creates the payload which will be handled by Amazon AWS Lambda Function
         pl =  {
             "id" : str(uuid.uuid4()),
             "token" : self.push_token,
             "event": event,
             "printer": self.machine_name,
             "currenttime" : self.current_time_passed,
-            "timeleft": 0,
+            "timeleft": self.current_eta,
             "percent" : int(self.current_progress),
             "print": self.current_job_name
         }
-        logging.info("Send 3D Geeks push with payload:")
-        logging.info(pl)
         return pl
-
-    # def _call_notification_endpoint(self, payload):
-        # loop = asyncio.new_event_loop()
-        # asyncio.set_event_loop(loop)
-        # result = loop.run_until_complete(self._async_call_notification_endpoint(payload))
     
-    def _call_notification_endpoint(self, payload):
-
+    def _call_notification_endpoint(self, payload): 
+        # Call notification endpoint that will result in a notification
         http_client = AsyncHTTPClient()
-
         headers = {'Content-Type': 'application/json'}
-
         json_data = json.dumps(payload)
-
         response =  http_client.fetch(self.notify_endpoint,
                                         raise_error=False,
                                         method='POST',
                                         body=json_data,
                                         headers=headers)
-        logging.info("Response code")
-
 
 
     
