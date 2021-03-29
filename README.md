@@ -68,6 +68,15 @@ Should see something like this:
 Open side menu > Integrations > Klipper > '+'-icon > Follow setup instructions
 ```
 
+# Refresh Push Token
+If for whatever reason you want to refresh your token, and invalidate your old one open a browser and call:
+
+```
+http://{klipper_ip}/server/geeks3d/refresh_push_token
+```
+
+You will now need to setup your instance in the app again. Follow Step 8 from Getting started.
+
 # Configuration
 The 3D Geeks component has a few parameters which can be customised:
 
